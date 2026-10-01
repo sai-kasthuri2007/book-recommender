@@ -84,18 +84,17 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         }
 
-        .card img {
-            width: 150px;
-            height: 200px;
-            object-fit: cover;
-        }
-
         .card h3 {
             font-size: 17px;
         }
 
         .card p {
             color: #666;
+        }
+
+        #error {
+            color: red;
+            margin-top: 20px;
         }
     </style>
 </head>
@@ -121,7 +120,10 @@
 
     </div>
 
+    <div id="error"></div>
+
     <div id="recommendations"></div>
+
 
     <script>
 
@@ -132,10 +134,15 @@
             .then(response => response.json())
             .then(data => {
                 books = data;
+            })
+            .catch(error => {
+                console.error("Error loading books:", error);
             });
+
 
         const input = document.getElementById('bookName');
         const suggestions = document.getElementById('suggestions');
+
 
         // Autocomplete
         input.addEventListener('input', function () {
@@ -149,23 +156,34 @@
             }
 
             const matches = books
-                .filter(book => book.toLowerCase().includes(text))
+                .filter(book =>
+                    book.toLowerCase().includes(text)
+                )
                 .slice(0, 8);
+
 
             matches.forEach(book => {
 
                 const div = document.createElement('div');
 
                 div.className = 'suggestion';
+
                 div.textContent = book;
 
+
                 div.onclick = function () {
+
                     input.value = book;
+
                     suggestions.innerHTML = '';
+
                 };
 
+
                 suggestions.appendChild(div);
+
             });
+
         });
 
 
@@ -174,10 +192,19 @@
 
             const bookName = input.value;
 
+            document.getElementById('error').innerHTML = '';
+
+            document.getElementById('recommendations').innerHTML = '';
+
+
             if (!bookName) {
-                alert("Please enter a book name.");
+
+                document.getElementById('error').innerHTML =
+                    'Please enter a book name.';
+
                 return;
             }
+
 
             fetch('/recommend', {
 
@@ -193,20 +220,43 @@
 
             })
 
-            .then(response => response.json())
+
+            .then(async response => {
+
+                const text = await response.text();
+
+                console.log("Status:", response.status);
+
+                console.log("Response:", text);
+
+
+                if (!response.ok) {
+
+                    throw new Error(text);
+
+                }
+
+
+                return JSON.parse(text);
+
+            })
+
 
             .then(data => {
 
                 const container =
                     document.getElementById('recommendations');
 
-                container.innerHTML = '';
 
                 if (data.error) {
-                    container.innerHTML =
-                        `<p>${data.error}</p>`;
+
+                    document.getElementById('error').innerHTML =
+                        data.error;
+
                     return;
+
                 }
+
 
                 data.forEach(book => {
 
@@ -215,24 +265,29 @@
 
                     card.className = 'card';
 
+
                     card.innerHTML = `
                         <h3>${book.title}</h3>
                         <p>${book.author}</p>
                     `;
 
+
                     container.appendChild(card);
+
                 });
 
             })
 
+
             .catch(error => {
 
-                console.error(error);
+                console.error("Recommendation error:", error);
 
-                document.getElementById('recommendations').innerHTML =
-                    '<p>Something went wrong. Please try again.</p>';
+                document.getElementById('error').innerHTML =
+                    'Something went wrong: ' + error.message;
 
             });
+
         }
 
     </script>

@@ -25,7 +25,6 @@ def home():
 
 @app.route('/books')
 def get_books():
-
     return jsonify(book_titles)
 
 
@@ -39,10 +38,8 @@ def recommend():
             'error': 'Book not found'
         }), 404
 
-    # Find the row number of the selected book
     book_index = book_titles.index(book_name)
 
-    # Find similar books
     distance, suggestion = model.kneighbors(
         book_sparse.getrow(book_index),
         n_neighbors=6
@@ -65,8 +62,7 @@ def recommend():
 
         recommendations.append({
             'title': title,
-            'author': book['Book-Author'],
-            'image_url': book['Image-URL-M']
+            'author': book['Book-Author']
         })
 
     return jsonify(recommendations)

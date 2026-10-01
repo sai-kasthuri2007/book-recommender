@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+
+    <title>Book Recommender</title>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f1ea;
+            margin: 0;
+            padding: 0;
+            color: #2c2c2c;
+        }
+
+        .container {
+            width: 92%;
+            max-width: 1200px;
+            margin: 45px auto;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 46px;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 19px;
+            color: #666;
+            margin-bottom: 35px;
+        }
+
+        .search-box {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 55px;
+        }
+
+        .autocomplete {
+            position: relative;
+            width: 600px;
+        }
+
+        .autocomplete input {
+            width: 100%;
+            padding: 17px 20px;
+            font-size: 17px;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            outline: none;
+        }
+
+        #suggestions {
+            position: absolute;
+            top: 60px;
+            left: 0;
+            right: 0;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            text-align: left;
+            z-index: 100;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .suggestion {
+            padding: 12px 15px;
+            cursor: pointer;
+        }
+
+        .suggestion:hover {
+            background: #eeeeee;
+        }
+
+        button {
+            padding: 17px 28px;
+            font-size: 17px;
+            border: none;
+            border-radius: 10px;
+            background: #333;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #555;
+        }
+
+        #results h2 {
+            font-size: 30px;
+            margin-bottom: 30px;
+        }
+
+        .books {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 22px;
+        }
+
+        .book-card {
+            background: white;
+            padding: 18px;
+            border-radius: 14px;
+            box-shadow: 0 5px 18px rgba(0,0,0,0.10);
+        }
+
+        .book-card img {
+            width: 150px;
+            height: 220px;
+            object-fit: cover;
+            border-radius: 6px;
+        }
+
+        .book-card h3 {
+            font-size: 17px;
+            line-height: 1.4;
+        }
+
+        .book-card p {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .loading {
+            color: #666;
+            font-size: 18px;
+        }
+
+        .error {
+            color: #b00020;
+            font-size: 18px;
+        }
+
+    </style>
+
+</head>
+
+
+<body>
+
+<div class="container">
+
+    <h1>Book Recommender</h1>
+
+    <p class="subtitle">
+        Discover books similar to the ones you love.
+    </p>
+
+
+    <div class="search-box">
+
+        <div class="autocomplete">
+
+            <input
+                type="text"
+                id="bookName"
+                placeholder="Search for a book..."
+                autocomplete="off"
+            >
+
+            <div id="suggestions"></div>
+
+        </div>
+
+
+        <button onclick="recommendBooks()">
+            Recommend
+        </button>
+
+    </div>
+
+
+    <div id="results"></div>
+
+</div>
+
+
+<script>
+
+let allBooks = [];
+
+
+// Load book titles
+
+async function loadBooks() {
+
+    try {
+
+        const response = await fetch("/books");
+
+        allBooks = await response.json();
+
+        console.log("Books loaded:", allBooks.length);
+
+    }
+
+    catch (error) {
+
+        console.log("Could not load books:", error);
+
+    }
+
+}
+
+loadBooks();
+
+
+// Autocomplete
+
+const bookInput =
+    document.getElementById("bookName");
+
+const suggestions =
+    document.getElementById("suggestions");
+
+
+bookInput.addEventListener("input", function() {
+
+    const text =
+        bookInput.value.toLowerCase().trim();
+
+    suggestions.innerHTML = "";
+
+
+    if (text.length < 2) {
+        return;
+    }
+
+
+    const matches = allBooks
+        .filter(function(book) {
+
+            return book
+                .toLowerCase()
+                .includes(text);
+
+        })
+        .slice(0, 8);
+
+
+    matches.forEach(function(book) {
+
+        const item =
+            document.createElement("div");
+
+        item.className = "suggestion";
+
+        item.textContent = book;
+
+
+        item.addEventListener("click", function() {
+
+            bookInput.value = book;
+
+            suggestions.innerHTML = "";
+
+        });
+
+
+        suggestions.appendChild(item);
+
+    });
+
+});
+
+
+// Recommendations
+
+async function recommendBooks() {
+
+    const bookName =
+        bookInput.value.trim();
+
+    const results =
+        document.getElementById("results");
+
+
+    if (bookName === "") {
+
+        results.innerHTML =
+            '<p class="error">Please enter a book name.</p>';
+
+        return;
+
+    }
+
+
+    results.innerHTML =
+        '<p class="loading">Finding recommendations...</p>';
+
+
+    try {
+
+        const response =
+            await fetch("/recommend", {
+
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+                    book_name: bookName
+                })
+
+            });
+
+
+        const data =
+            await response.json();
+
+
+        if (data.error) {
+
+            results.innerHTML =
+                `<p class="error">${data.error}</p>`;
+
+            return;
+
+        }
+
+
+        let html =
+            "<h2>Recommended Books</h2>";
+
+        html += '<div class="books">';
+
+
+        data.forEach(function(book) {
+
+            html += `
+
+                <div class="book-card">
+
+                    <img
+                        src="${book.image_url}"
+                        alt="${book.title}"
+                    >
+
+                    <h3>${book.title}</h3>
+
+                    <p>
+                        Author: ${book.author}
+                    </p>
+
+                </div>
+
+            `;
+
+        });
+
+
+        html += "</div>";
+
+        results.innerHTML = html;
+
+    }
+
+
+    catch (error) {
+
+        results.innerHTML =
+            '<p class="error">Something went wrong.</p>';
+
+    }
+
+}
+
+</script>
+
+</body>
+
+</html>
